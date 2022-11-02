@@ -481,13 +481,45 @@ By default, all targetss' visibility is `private`, targets in the same packages 
  scala_library(
      name = "greeting",
      srcs = ["Greeting.scala"],
-+    visibility = ["//src/main/scala/cmd:runner"],
++    visibility = ["//src/main/scala/cmd:__pkg__"],
  )
 ```
 
+[visibility](https://bazel.build/concepts/visibility) controll access grants to packages 
 
+- `//src/main/scala/cmd:__pkg__"`grants access to the package `//src/main/scala/cmd`
+- `"//visibility:public"` grants access to all packages 
 
-[Visibility  |  Bazel](https://bazel.build/concepts/visibility)
+---
+
+# Build the binary! (again)
+
+```sh
+❯ bazel build //src/main/scala/cmd:runner
+...
+INFO: Found 1 target...
+Target //src/main/scala/cmd:runner up-to-date:
+  bazel-bin/src/main/scala/cmd/runner.jar
+  bazel-bin/src/main/scala/cmd/runner
+```
+
+```sh
+❯ ./bazel-bin/src/main/scala/cmd/runner
+Hi!
+```
+
+Great!
+
+---
+
+# Useful shortcuts
+
+Usually build all targets by `$ bazel build //...`
+
+- `//...`	All targets in packages in the workspace. 
+- `//foo/...` All rule targets in all packages beneath the directory foo
+
+[Building multiple targets](https://bazel.build/run/build#specifying-build-targets)
 
 ---
 
@@ -497,12 +529,45 @@ By default, all targetss' visibility is `private`, targets in the same packages 
 
 **What you'll learn**
 - How to download external dependencies from maven repositories.
-- How to use it from packages.
+- How to depend on downloaded packages
+
+https://github.com/tanishiking/bazel-tutorial-scala/blob/main/02_scala_maven
 
 ---
 
 # rules_jvm_external
-[bazelbuild/rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external) is a 
+[bazelbuild/rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external) is a popular ruleset to resolve and download JVM dependencies.
+
+Download `rules_jvm_external` in `WORKSPACE` as always
+
+```
+RULES_JVM_EXTERNAL_TAG = "2.5"
+RULES_JVM_EXTERNAL_SHA = "249e8129914be6d987ca57754516be35a14ea866c616041ff0cd32ea94d2f3a1"
+http_archive(
+    name = "rules_jvm_external",
+    sha256 = RULES_JVM_EXTERNAL_SHA,
+    strip_prefix = "rules_jvm_external-%s" % RULES_JVM_EXTERNAL_TAG,
+    url = "https://github.com/bazelbuild/rules_jvm_external/archive/%s.zip" % RULES_JVM_EXTERNAL_TAG,
+)
+```
+
+---
+
+# Download JVM deps
+
+```
+# WORKSPACE
+load("@rules_jvm_external//:defs.bzl", "maven_install")
+maven_install(
+    artifacts = [
+        "org.scalameta:scalameta_2.13:4.5.13",
+        "com.lihaoyi:pprint_2.13:0.7.3",
+    ],
+    repositories = [
+        "https://repo1.maven.org/maven2",
+    ],
+)
+```
 
 ---
 
@@ -520,19 +585,32 @@ By default, all targetss' visibility is `private`, targets in the same packages 
 
 ---
 
-# External Resources
-- basics
-  - [Bazel getting started](https://bazel.build/start)
-  - [bazelbuild/rules_scala](https://github.com/bazelbuild/rules_scala)
-  - [bazelbuild/rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external)
-- For more information
-  - [Software Engineering at Google, chapter 18](https://abseil.io/resources/swe-book/html/ch18.html)
-  - [How to successfully migrate to Bazel from Maven or Gradle. (Natan Silnitsky, Israel - Youtube](https://www.youtube.com/watch?v=2UOFm-Cc_cU&t=2882s])
+# Learning Resources
+- [Bazel getting started](https://bazel.build/start)
+  - Recommend to skim through **Java tutorial** and **Build concepts**
+- [bazelbuild/rules_scala](https://github.com/bazelbuild/rules_scala)
+- [bazelbuild/rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external)
+- [tanishiking/bazel-playground](https://github.com/tanishiking/bazel-playground)
+  - You can find my Bazel example projects :smile:
+- [Software Engineering at Google, chapter 18](https://abseil.io/resources/swe-book/html/ch18.html)
+  - To learn the philosophy of Bazel
+
+---
+
+# Interesting Bazel talks and articles
+- [Awesome Bazel | awesome-bazel](https://awesomebazel.com/)
+- [How to successfully migrate to Bazel from Maven or Gradle. (Natan Silnitsky, Israel - Youtube](https://www.youtube.com/watch?v=2UOFm-Cc_cU&t=2882s])
+- [When to use Bazel? - Earthly Blog](https://earthly.dev/blog/bazel-build/)
+- [How to choose the right build unit granularity | Medium](https://medium.com/wix-engineering/migrating-to-bazel-from-maven-or-gradle-part-1-how-to-choose-the-right-build-unit-granularity-a58a8142c549)
+- [A Bable in Bazel](https://sluongng.hashnode.dev/) Blog posts about Bazel internal
 
 ---
 
 # Bazel related tools
 - [IntelliJ with Bazel](https://ij.bazel.build/)
+- [bazel-stack-vscode - Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=StackBuild.bazel-stack-vscode)
 - [JetBrains/bazel-bsp](https://github.com/JetBrains/bazel-bsp)
+- [buildtools/buildifier at master · bazelbuild/buildtools](https://github.com/bazelbuild/buildtools/tree/master/buildifier)
+
 - Gazelle
 - Buildifier
