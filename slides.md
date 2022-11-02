@@ -20,23 +20,11 @@ Rikito Taniguchi
 
 ---
 
-# What you will learn
-
-- Why we're migrating to Bazel
-  - Is this really worth it?
-- Pros and Cons of Bazel (over sbt)
-- Why you NEED TO LEARN Bazel
-- Bazel basic concepts
-- How to write Bazel build settings for Scala
-
----
-
 # Agenda
 
 - Reminder of the "problem"
 - Bazel Concept
 - Bazel and Scala tutorial
-- Know the trade-offs
 
 ---
 
@@ -60,19 +48,17 @@ the project's productivity.
 
 ---
 
-# Mitigate the slow compilation by...
+# Options to alleviate the problem
 
-- Profiling and Speeding up Scala compilation
-  - [Speeding Up Compilation Time with scalac-profiling](https://www.scala-lang.org/blog/2018/06/04/scalac-profiling.html)
-- More finer-grained dependencies in build.sbt
-  - [Improve build speed using sbt's custom Configuration - xuwei-k's blog](https://xuwei-k.hatenablog.com/entry/2022/10/09/124418) (Japanese blog)
+- Optimize Scala compilation (maybe using [scalac-profiling](https://www.scala-lang.org/blog/2018/06/04/scalac-profiling.html))
+- Optimize sbt build
+  - [-Dsbt.traces=true](https://github.com/sbt/sbt/pull/4576)
+  - [Custom configuration](https://www.scala-sbt.org/1.x/docs/Advanced-Configurations-Example.html)
+- Split to multi-repo
+- [Compile Scala Faster with Hydra - Triplequote](https://triplequote.com/hydra)
 
-```scala
-val TestShared =
-  Configuration.of("TestShared", "test-shared") extend Compile
-```
 
-**Still, build time grows per LOC**
+**Still, build time increase as project grows**
 
 <!--
 Even though Scala compilation is slow,
@@ -152,7 +138,8 @@ I believe you have experience sbt just stopped working and have to run `sbt clea
 
 - Poor IDE support (it's getting better though...)
 - More build settings
-- Explicit dependency management (toilsome)
+- Explicit dependency management
+- Less flexibility
 
 <!--
 
@@ -166,12 +153,12 @@ there's a significant trade-off
 
 # Is Bazel a right path?
 
-Not sure, yet!
-
-Bazel is not the only option 
+Not sure, yet! Bazel is not the only option 
 
 - Split to multi-repo
-- Stick with sbt
+- Stick with sbt and micro-optimize build
+- [Compile Scala Faster with Hydra - Triplequote](https://triplequote.com/hydra)
+- **Or, Scale with Bazel**
 
 [When to use Bazel? - Earthly Blog](https://earthly.dev/blog/bazel-build/)
 
@@ -475,7 +462,7 @@ By default, all targetss' visibility is `private`, targets in the same packages 
 
 ---
 
-# Make `lib` visible from `cmd:runner`
+# Make `lib` visible from `cmd` package
 
 ```diff
  scala_library(
@@ -508,11 +495,9 @@ Target //src/main/scala/cmd:runner up-to-date:
 Hi!
 ```
 
-Great!
-
 ---
 
-# Useful shortcuts
+# Tips: Wildcard
 
 Usually build all targets by `$ bazel build //...`
 
@@ -520,6 +505,21 @@ Usually build all targets by `$ bazel build //...`
 - `//foo/...` All rule targets in all packages beneath the directory foo
 
 [Building multiple targets](https://bazel.build/run/build#specifying-build-targets)
+
+---
+# Tips: bazel query
+
+[bazel query](https://bazel.build/query/quickstart) is useful to find target
+
+```
+❯ bazel query //... | grep lib
+//src/main/scala/lib:greeting
+```
+
+- `bazel query //...` to list all targets in the repo
+- `bazel query //... --output=location` to show the location of target definitions
+- `bazel query "rdeps(//..., //src/main/scala/lib:greeting)"`
+  - reverse deps of `:greeting` from `//...`
 
 ---
 
@@ -571,21 +571,61 @@ maven_install(
 
 ---
 
+# Use downloaded libraries
 
-![bg left:30% 80%](https://upload.wikimedia.org/wikipedia/en/7/7d/Bazel_logo.svg)
+```
+# cat src/main/scala/example/BUILD
+scala_binary(
+# ...
+    deps = [
+        "@maven//:com_lihaoyi_pprint_2_13",
+        "@maven//:org_scalameta_scalameta_2_13",
+    ],
+)
+```
 
-# **Target granularity**
+> The default label syntax for an artifact `foo.bar:baz-qux:1.2.3` is `@maven//:foo_bar_baz_qux`
+https://github.com/bazelbuild/rules_jvm_external#usage
 
 ---
 
-![bg left:30% 80%](https://upload.wikimedia.org/wikipedia/en/7/7d/Bazel_logo.svg)
+# Build it!
 
-# **Tips and Tricks**
+```sh
+❯ bazel build //src/main/scala/example:app
+Target //src/main/scala/example:app up-to-date:
+  bazel-bin/src/main/scala/example/app.jar
+  bazel-bin/src/main/scala/example/app
 
+❯ bazel-bin/src/main/scala/example/app "object main { println(1) }"
+Source(
+  stats = List(
+    Defn.Object(
+      ...
+```
 
 ---
 
-# Learning Resources
+
+# Tips: find library's label
+
+[bazel query](https://bazel.build/query/quickstart) again!
+
+Enumerate all targets under `@maven` repo, and grep `pprint`
+
+```sh
+❯ bazel query @maven//... | grep pprint
+@maven//:com_lihaoyi_pprint_2_13
+@maven//:com_lihaoyi_pprint_2_13_0_7_3
+```
+
+---
+
+Now you learnt all Bazel basics :tada:
+
+---
+
+# Wanna learn more?
 - [Bazel getting started](https://bazel.build/start)
   - Recommend to skim through **Java tutorial** and **Build concepts**
 - [bazelbuild/rules_scala](https://github.com/bazelbuild/rules_scala)
@@ -594,6 +634,16 @@ maven_install(
   - You can find my Bazel example projects :smile:
 - [Software Engineering at Google, chapter 18](https://abseil.io/resources/swe-book/html/ch18.html)
   - To learn the philosophy of Bazel
+
+---
+
+# Topics I didn't cover
+
+- Target granularity and trade-offs
+  - read [How to choose the right build unit granularity | by Natan Silnitsky | Wix Engineering | Medium](https://medium.com/wix-engineering/migrating-to-bazel-from-maven-or-gradle-part-1-how-to-choose-the-right-build-unit-granularity-a58a8142c549)
+- Bazel devtools (attached some links in the following slide)
+- [Remote Caching](https://bazel.build/remote/caching)
+- [Remote Execution](https://bazel.build/remote/rbe)
 
 ---
 
@@ -606,11 +656,20 @@ maven_install(
 
 ---
 
-# Bazel related tools
-- [IntelliJ with Bazel](https://ij.bazel.build/)
-- [bazel-stack-vscode - Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=StackBuild.bazel-stack-vscode)
-- [JetBrains/bazel-bsp](https://github.com/JetBrains/bazel-bsp)
-- [buildtools/buildifier at master · bazelbuild/buildtools](https://github.com/bazelbuild/buildtools/tree/master/buildifier)
+**Bazel dev tools**
 
-- Gazelle
-- Buildifier
+- [IntelliJ with Bazel](https://ij.bazel.build/)
+  - Bazel IDE for IntelliJ, developed by Jetbrains + Bazel team
+- [Bazel - Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=BazelBuild.vscode-bazel)
+  - Syntax highlight + format + lint
+- [bazel-stack-vscode - Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=StackBuild.bazel-stack-vscode)
+  - Experimental IDE for VSCode
+- [JetBrains/bazel-bsp](https://github.com/JetBrains/bazel-bsp) required for Scala IDE work with Bazel
+- [buildtools/buildifier](https://github.com/bazelbuild/buildtools/tree/master/buildifier) Bazel formatter and linter
+- [Gazelle](https://github.com/bazelbuild/bazel-gazelle) Bazel build file generator, Scala is not yet supported
+
+---
+
+![bg left:30% 80%](https://upload.wikimedia.org/wikipedia/en/7/7d/Bazel_logo.svg)
+
+[Home - BazelCon 2022](https://opensourcelive.withgoogle.com/events/bazelcon2022?utm_source=BazelCon&utm_medium=Social&utm_campaign=BazelCon%2B2022)

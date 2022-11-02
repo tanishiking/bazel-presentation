@@ -1,0 +1,2 @@
+- Install [Marp: Markdown Presentation Ecosystem](https://marp.app/)
+- `marp --html slides.md --pdf`
